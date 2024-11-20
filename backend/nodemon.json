@@ -1,0 +1,11 @@
+{
+  "watch": [
+    "src",
+    "bin"
+  ],
+  "ext": "ts",
+  "ignore": [
+    "node_modules"
+  ],
+  "exec": "ts-node ./bin/www.ts"
+}
