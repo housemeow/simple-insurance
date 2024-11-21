@@ -42,3 +42,6 @@ dist/
 
 # file upload
 !uploads/.gitkeep
+
+# mongo
+data/
