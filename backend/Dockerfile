@@ -15,9 +15,8 @@ RUN npm install
 
 # Copy local code to the container image.
 COPY . ./
-RUN npm run build
 
 # Run the web service on container startup.
-ENTRYPOINT [ "node", "dist/bin/www.js" ]
+ENTRYPOINT [ "npm", "run", "dev" ]
 
 EXPOSE 3000
