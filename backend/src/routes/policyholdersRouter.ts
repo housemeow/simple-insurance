@@ -66,5 +66,37 @@ router.get('/:code/top', asyncErrorHandler(async (req, res) => {
   res.json(data);
 }))
 
+router.post('/', asyncErrorHandler(async (req, res) => {
+  const {
+    name,
+    introducer_code,
+  } = req.body
+
+  if (!introducer_code) {
+    const anyPolicyholder = await Policyholder.findOne();
+    if (anyPolicyholder) {
+      return res.status(400).json({ message: 'root has been created.' });
+    }
+
+    const counter = await Counter.findOneAndUpdate(
+      { name: 'policyholder' },
+      { $inc: { serial: 1 } },
+      { new: true, upsert: true }
+    );
+    const code = counter.serial.toString().padStart(8, '0');
+
+    const root = new Policyholder({
+      code,
+      name,
+      registration_date: new Date(),
+      introducer_code: '',
+      parents: '',
+    });
+    await root.save();
+    return res.json(root);
+  }
+
+  res.send(createError[501])
+}))
 
 export default router;
