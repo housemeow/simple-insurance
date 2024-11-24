@@ -8,17 +8,8 @@ export const asyncErrorHandler = (fn: (req: Request, res: Response) => Promise<a
   Promise.resolve(fn(req, res)).catch(next);
 };
 
-router.get('/', asyncErrorHandler(async (req, res) => {
-  const code = req.query.code as string;
-
-  // find 4 levels of nodes
-  const parentNode = await Policyholder.findOne({ code }) as IPolicyholder;
-
-  if (!parentNode) {
-    return res.status(404).json({ message: 'policyholder not found.' });
-  }
-
-  const nodes = await Policyholder.find({ parents: { $regex: `${code}(/[^/]+){0,2}$` } }) as IPolicyholder[];
+async function getTree(parentNode: IPolicyholder, childrenDepth: number) {
+  const nodes = await Policyholder.find({ parents: { $regex: `${parentNode.code}(/[^/]+){0,${childrenDepth - 1}}$` } }) as IPolicyholder[];
 
   const buildTree = (node: IPolicyholder, allNodes: IPolicyholder[]): any => {
     const leftNode = allNodes.find(n => n.id === node.l?.toString());
@@ -34,7 +25,21 @@ router.get('/', asyncErrorHandler(async (req, res) => {
     };
   };
 
-  const data = buildTree(parentNode, nodes);
+  return buildTree(parentNode, nodes);
+}
+
+router.get('/', asyncErrorHandler(async (req, res) => {
+  const code = req.query.code as string;
+
+  // find 4 levels of nodes
+  const parentNode = await Policyholder.findOne({ code }) as IPolicyholder;
+
+  if (!parentNode) {
+    return res.status(404).json({ message: 'policyholder not found.' });
+  }
+
+  const data = await getTree(parentNode, 3);
+  console.log( data )
 
   res.json(data);
 }))
@@ -42,29 +47,18 @@ router.get('/', asyncErrorHandler(async (req, res) => {
 router.get('/:code/top', asyncErrorHandler(async (req, res) => {
   const code = req.params.code;
 
-  const data = {
-    code,
-    name: '保戶姓名',
-    registration_date: new Date(),
-    introducer_code: '介紹人保戶編號',
-    l: [
-      {
-        code: '左樹保戶編號',
-        name: '左樹保戶姓名',
-        registration_date: new Date(),
-        introducer_code: '左樹介紹人保戶編號',
-      },
-    ],
-    r: [
-      {
-        code: '右樹保戶編號',
-        name: '右樹保戶姓名',
-        registration_date: new Date(),
-        introducer_code: '右樹介紹人保戶編號',
-      },
-    ],
+  const node = await Policyholder.findOne({ code }) as IPolicyholder;
+
+  if (!node) {
+    return res.status(404).json({ message: 'policyholder not found.' });
   }
 
+  if (!node.parents) {
+    return res.status(400).json({ message: 'node is root.' });
+  }
+
+  const parent = node.parents.split('/').slice(-1)[0];
+  const data = await getTree(await Policyholder.findOne({ code: parent }) as IPolicyholder, 3);
   res.json(data);
 }))
 
