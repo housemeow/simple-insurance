@@ -1,5 +1,5 @@
 import { Counter } from '@/models/counter';
-import { IPolicyholder, Policyholder } from '@/models/policyholder';
+import { Policyholder } from '@/models/policyholder';
 import { Request, Response, NextFunction, Router } from 'express';
 import createError from 'http-errors';
 
@@ -101,6 +101,43 @@ router.post('/', asyncErrorHandler(async (req, res) => {
   const introducer = await Policyholder.findOne({ code: introducer_code });
   if (!introducer) {
     return res.status(400).json({ message: 'introducer not found.' });
+  }
+
+  const counter = await Counter.findOneAndUpdate(
+    { name: 'policyholder' },
+    { $inc: { serial: 1 } },
+    { new: true, upsert: true }
+  );
+  const code = counter.serial.toString().padStart(8, '0');
+
+  if (!introducer.l) {
+    const child = new Policyholder({
+      code,
+      name,
+      registration_date: new Date(),
+      introducer_code,
+      parents: introducer.parents ? `${introducer.parents}/${introducer.code}` : introducer.code,
+    });
+    await child.save();
+
+    introducer.l = child
+    await introducer.save();
+
+    return res.json(child);
+  } else if (!introducer.r) {
+    const child = new Policyholder({
+      code,
+      name,
+      registration_date: new Date(),
+      introducer_code,
+      parents: introducer.parents ? `${introducer.parents}/${introducer.code}` : introducer.code,
+    });
+    await child.save();
+
+    introducer.r = child
+    await introducer.save();
+
+    return res.json(child);
   }
 
   res.send(createError[501])
