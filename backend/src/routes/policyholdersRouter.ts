@@ -1,5 +1,5 @@
 import { Counter } from '@/models/counter';
-import { Policyholder } from '@/models/policyholder';
+import { IPolicyholder, Policyholder } from '@/models/policyholder';
 import { Request, Response, NextFunction, Router } from 'express';
 import createError from 'http-errors';
 
@@ -84,7 +84,7 @@ router.post('/', asyncErrorHandler(async (req, res) => {
       { $inc: { serial: 1 } },
       { new: true, upsert: true }
     );
-    const code = counter.serial.toString().padStart(8, '0');
+    const code = counter.serial.toString().padStart(10, '0');
 
     const root = new Policyholder({
       code,
@@ -108,37 +108,46 @@ router.post('/', asyncErrorHandler(async (req, res) => {
     { $inc: { serial: 1 } },
     { new: true, upsert: true }
   );
-  const code = counter.serial.toString().padStart(8, '0');
+  const code = counter.serial.toString().padStart(10, '0');
 
-  if (!introducer.l) {
-    const child = new Policyholder({
-      code,
-      name,
-      registration_date: new Date(),
-      introducer_code,
-      parents: introducer.parents ? `${introducer.parents}/${introducer.code}` : introducer.code,
-    });
-    await child.save();
+  let parent: IPolicyholder = introducer;
+  do {
+    if (!parent.l) {
+      const child = new Policyholder({
+        code,
+        name,
+        registration_date: new Date(),
+        introducer_code,
+        parents: parent.parents ? `${parent.parents}/${parent.code}` : parent.code,
+      });
+      await child.save();
 
-    introducer.l = child
-    await introducer.save();
+      parent.l = child
+      await parent.save();
 
-    return res.json(child);
-  } else if (!introducer.r) {
-    const child = new Policyholder({
-      code,
-      name,
-      registration_date: new Date(),
-      introducer_code,
-      parents: introducer.parents ? `${introducer.parents}/${introducer.code}` : introducer.code,
-    });
-    await child.save();
+      return res.json(child);
+    } else if (!parent.r) {
+      const child = new Policyholder({
+        code,
+        name,
+        registration_date: new Date(),
+        introducer_code,
+        parents: parent.parents ? `${parent.parents}/${parent.code}` : parent.code,
+      });
+      await child.save();
 
-    introducer.r = child
-    await introducer.save();
+      parent.r = child
+      await parent.save();
 
-    return res.json(child);
-  }
+      return res.json(child);
+    }
+    const leftNode = await Policyholder.findById(parent.l) as IPolicyholder;
+    const rightNode = await Policyholder.findById(parent.r) as IPolicyholder;
+    // calc left tree node count and right tree node count
+    const leftNodeCount = await Policyholder.countDocuments({ parents: { $regex: `${leftNode.parents}/${leftNode.code}` } });
+    const rightNodeCount = await Policyholder.countDocuments({ parents: { $regex: `${rightNode.parents}/${rightNode.code}` } });
+    parent = await Policyholder.findById(leftNodeCount <= rightNodeCount ? parent.l : parent.r) as IPolicyholder
+  } while (parent)
 
   res.send(createError[501])
 }))
