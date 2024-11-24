@@ -1,7 +1,6 @@
 import { Counter } from '@/models/counter';
 import { IPolicyholder, Policyholder } from '@/models/policyholder';
 import { Request, Response, NextFunction, Router } from 'express';
-import createError from 'http-errors';
 
 const router = Router();
 
@@ -11,28 +10,31 @@ export const asyncErrorHandler = (fn: (req: Request, res: Response) => Promise<a
 
 router.get('/', asyncErrorHandler(async (req, res) => {
   const code = req.query.code as string;
-  const data = {
-    code,
-    name: '保戶姓名',
-    registration_date: new Date(),
-    introducer_code: '介紹人保戶編號',
-    l: [
-      {
-        code: '左樹保戶編號',
-        name: '左樹保戶姓名',
-        registration_date: new Date(),
-        introducer_code: '左樹介紹人保戶編號',
-      },
-    ],
-    r: [
-      {
-        code: '右樹保戶編號',
-        name: '右樹保戶姓名',
-        registration_date: new Date(),
-        introducer_code: '右樹介紹人保戶編號',
-      },
-    ],
+
+  // find 4 levels of nodes
+  const parentNode = await Policyholder.findOne({ code }) as IPolicyholder;
+
+  if (!parentNode) {
+    return res.status(404).json({ message: 'policyholder not found.' });
   }
+
+  const nodes = await Policyholder.find({ parents: { $regex: `${code}(/[^/]+){0,2}$` } }) as IPolicyholder[];
+
+  const buildTree = (node: IPolicyholder, allNodes: IPolicyholder[]): any => {
+    const leftNode = allNodes.find(n => n.id === node.l?.toString());
+    const rightNode = allNodes.find(n => n.id === node.r?.toString());
+
+    return {
+      code: node.code,
+      name: node.name,
+      registration_date: node.registration_date,
+      introducer_code: node.introducer_code,
+      l: leftNode ? buildTree(leftNode, allNodes) : null,
+      r: rightNode ? buildTree(rightNode, allNodes) : null,
+    };
+  };
+
+  const data = buildTree(parentNode, nodes);
 
   res.json(data);
 }))
@@ -148,8 +150,6 @@ router.post('/', asyncErrorHandler(async (req, res) => {
     const rightNodeCount = await Policyholder.countDocuments({ parents: { $regex: `${rightNode.parents}/${rightNode.code}` } });
     parent = await Policyholder.findById(leftNodeCount <= rightNodeCount ? parent.l : parent.r) as IPolicyholder
   } while (parent)
-
-  res.send(createError[501])
 }))
 
 export default router;

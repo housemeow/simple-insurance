@@ -1,6 +1,6 @@
 import request from 'supertest';
 import mongoose from 'mongoose';
-import type { Express } from 'express'
+import { type Express } from 'express'
 import dotenv from 'dotenv';
 import { connectDB } from '@/config/db';
 import { IPolicyholder, Policyholder } from '@/models/policyholder';
@@ -326,6 +326,180 @@ describe('Policyholders API Endpoints', () => {
       expect(node15.introducer_code).toEqual('0000000003');
       expect(node15.l).toEqual(undefined);
       expect(node15.r).toEqual(undefined);
+    })
+  })
+
+  describe('[GET] /api/policyholders', () => {
+    it('should return 400 if no policyholder', async () => {
+      const res = await request(app)
+        .get('/api/policyholders')
+        .query({ code: '0000000001' })
+      expect(res.statusCode).toEqual(404);
+      expect(res.body).toHaveProperty('message', 'policyholder not found.');
+    })
+
+    it('should return 200 if root policyholder', async () => {
+      /**
+       *              1
+       *            /  \
+       *          2     3
+       *         / \   /
+       *        4   5  6
+       *       / \ /
+       *      7  8 9
+       *     / \
+       *    10 11
+       */
+
+      // create root node 0000000001
+      await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: '保戶1',
+        })
+      // create node 0000000002
+      await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: '保戶2',
+          introducer_code: '0000000001',
+        })
+      // create node 0000000003
+      await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: '保戶3',
+          introducer_code: '0000000001',
+        })
+      // create node 0000000004
+      await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: '保戶4',
+          introducer_code: '0000000002',
+        })
+      // create node 0000000005
+      await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: '保戶5',
+          introducer_code: '0000000002',
+        })
+      // create node 0000000006
+      await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: '保戶6',
+          introducer_code: '0000000003',
+        })
+      // create node 0000000007
+      await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: '保戶7',
+          introducer_code: '0000000004',
+        })
+      // create node 0000000008
+      await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: '保戶8',
+          introducer_code: '0000000004',
+        })
+      // create node 0000000009
+      await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: '保戶9',
+          introducer_code: '0000000005',
+        })
+      // create node 0000000010
+      await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: '保戶10',
+          introducer_code: '0000000007',
+        })
+      // create node 0000000011
+      await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: '保戶11',
+          introducer_code: '0000000007',
+        })
+
+      const res = await request(app)
+        .get('/api/policyholders')
+        .query({ code: '0000000001' })
+
+      expect(res.statusCode).toEqual(200);
+
+      const expectResult = {
+        code: '0000000001',
+        name: '保戶1',
+        registration_date: expect.any(String),
+        introducer_code: '',
+        l: {
+          code: '0000000002',
+          name: '保戶2',
+          registration_date: expect.any(String),
+          introducer_code: '0000000001',
+          l: {
+            code: '0000000004',
+            name: '保戶4',
+            registration_date: expect.any(String),
+            introducer_code: '0000000002',
+            l: {
+              code: '0000000007',
+              name: '保戶7',
+              registration_date: expect.any(String),
+              introducer_code: '0000000004',
+              l: null,
+              r: null,
+            },
+            r: {
+              code: '0000000008',
+              name: '保戶8',
+              registration_date: expect.any(String),
+              introducer_code: '0000000004',
+              l: null,
+              r: null,
+            },
+          },
+          r: {
+            code: '0000000005',
+            name: '保戶5',
+            registration_date: expect.any(String),
+            introducer_code: '0000000002',
+            l: {
+              code: '0000000009',
+              name: '保戶9',
+              registration_date: expect.any(String),
+              introducer_code: '0000000005',
+              l: null,
+              r: null,
+            },
+            r: null,
+          },
+        },
+        r: {
+          code: '0000000003',
+          name: '保戶3',
+          registration_date: expect.any(String),
+          introducer_code: '0000000001',
+          l: {
+            code: '0000000006',
+            name: '保戶6',
+            registration_date: expect.any(String),
+            introducer_code: '0000000003',
+            l: null,
+            r: null,
+          },
+          r: null,
+        },
+      }
+
+      expect(res.body).toEqual(expectResult);
     })
   })
 })
