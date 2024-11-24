@@ -64,5 +64,16 @@ describe('Policyholders API Endpoints', () => {
       expect(res.statusCode).toEqual(400);
       expect(res.body).toHaveProperty('message', 'root has been created.');
     })
+
+    it('should return 400 if introducer_code is not exist', async () => {
+      const res = await request(app)
+        .post('/api/policyholders')
+        .send({
+          name: 'Policyholder Name',
+          introducer_code: 'not found introducer',
+        })
+      expect(res.statusCode).toEqual(400);
+      expect(res.body).toHaveProperty('message', 'introducer not found.');
+    })
   })
 })

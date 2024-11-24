@@ -72,6 +72,7 @@ router.post('/', asyncErrorHandler(async (req, res) => {
     introducer_code,
   } = req.body
 
+  // create root policyholder
   if (!introducer_code) {
     const anyPolicyholder = await Policyholder.findOne();
     if (anyPolicyholder) {
@@ -94,6 +95,12 @@ router.post('/', asyncErrorHandler(async (req, res) => {
     });
     await root.save();
     return res.json(root);
+  }
+
+  // create child policyholder
+  const introducer = await Policyholder.findOne({ code: introducer_code });
+  if (!introducer) {
+    return res.status(400).json({ message: 'introducer not found.' });
   }
 
   res.send(createError[501])
