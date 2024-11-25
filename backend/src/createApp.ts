@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import logger from 'morgan';
 import rootRouter from '@/routes'; // Import the root router
 import { MongooseError } from 'mongoose';
+import { setupSwagger } from '@/config/swagger'; // Import Swagger setup
 
 export function createApp() {
     const app = express();
@@ -24,6 +25,9 @@ export function createApp() {
     })
 
     app.use('/api', rootRouter);
+
+    // Setup Swagger
+    setupSwagger(app);
 
     // catch 404 and forward to error handler
     app.use((req: Request, res: Response, next: NextFunction) => {

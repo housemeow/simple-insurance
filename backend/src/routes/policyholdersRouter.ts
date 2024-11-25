@@ -28,6 +28,24 @@ async function getTree(parentNode: IPolicyholder, childrenDepth: number) {
   return buildTree(parentNode, nodes);
 }
 
+/**
+ * @swagger
+ * /policyholders:
+ *   get:
+ *     summary: Get policyholder tree
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Policyholder code
+ *     responses:
+ *       200:
+ *         description: Policyholder tree
+ *       404:
+ *         description: Policyholder not found
+ */
 router.get('/', asyncErrorHandler(async (req, res) => {
   const code = req.query.code as string;
 
@@ -39,34 +57,36 @@ router.get('/', asyncErrorHandler(async (req, res) => {
   }
 
   const data = await getTree(parentNode, 3);
-  console.log( data )
 
   res.json(data);
-}))
+}));
 
-router.get('/:code/top', asyncErrorHandler(async (req, res) => {
-  const code = req.params.code;
-
-  const node = await Policyholder.findOne({ code }) as IPolicyholder;
-
-  if (!node) {
-    return res.status(404).json({ message: 'policyholder not found.' });
-  }
-
-  if (!node.parents) {
-    return res.status(400).json({ message: 'node is root.' });
-  }
-
-  const parent = node.parents.split('/').slice(-1)[0];
-  const data = await getTree(await Policyholder.findOne({ code: parent }) as IPolicyholder, 3);
-  res.json(data);
-}))
-
+/**
+ * @swagger
+ * /policyholders:
+ *   post:
+ *     summary: Create a new policyholder
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "Policyholder Name"
+ *               introducer_code:
+ *                 type: string
+ *                 example: "0000000001"
+ *     responses:
+ *       200:
+ *         description: Policyholder created successfully
+ *       400:
+ *         description: Bad request
+ */
 router.post('/', asyncErrorHandler(async (req, res) => {
-  const {
-    name,
-    introducer_code,
-  } = req.body
+  const { name, introducer_code } = req.body;
 
   // create root policyholder
   if (!introducer_code) {
@@ -118,7 +138,7 @@ router.post('/', asyncErrorHandler(async (req, res) => {
       });
       await child.save();
 
-      parent.l = child
+      parent.l = child;
       await parent.save();
 
       return res.json(child);
@@ -132,7 +152,7 @@ router.post('/', asyncErrorHandler(async (req, res) => {
       });
       await child.save();
 
-      parent.r = child
+      parent.r = child;
       await parent.save();
 
       return res.json(child);
@@ -142,8 +162,46 @@ router.post('/', asyncErrorHandler(async (req, res) => {
     // calc left tree node count and right tree node count
     const leftNodeCount = await Policyholder.countDocuments({ parents: { $regex: `${leftNode.parents}/${leftNode.code}` } });
     const rightNodeCount = await Policyholder.countDocuments({ parents: { $regex: `${rightNode.parents}/${rightNode.code}` } });
-    parent = await Policyholder.findById(leftNodeCount <= rightNodeCount ? parent.l : parent.r) as IPolicyholder
-  } while (parent)
-}))
+    parent = await Policyholder.findById(leftNodeCount <= rightNodeCount ? parent.l : parent.r) as IPolicyholder;
+  } while (parent);
+}));
+
+/**
+ * @swagger
+ * /policyholders/{code}/top:
+ *   get:
+ *     summary: Get top policyholder
+ *     parameters:
+ *       - in: path
+ *         name: code
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: Policyholder code
+ *     responses:
+ *       200:
+ *         description: Top policyholder
+ *       404:
+ *         description: Policyholder not found
+ *       400:
+ *         description: Node is root
+ */
+router.get('/:code/top', asyncErrorHandler(async (req, res) => {
+  const code = req.params.code;
+
+  const node = await Policyholder.findOne({ code }) as IPolicyholder;
+
+  if (!node) {
+    return res.status(404).json({ message: 'policyholder not found.' });
+  }
+
+  if (!node.parents) {
+    return res.status(400).json({ message: 'node is root.' });
+  }
+
+  const parent = node.parents.split('/').slice(-1)[0];
+  const data = await getTree(await Policyholder.findOne({ code: parent }) as IPolicyholder, 3);
+  res.json(data);
+}));
 
 export default router;
